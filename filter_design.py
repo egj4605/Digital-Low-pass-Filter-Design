@@ -54,9 +54,20 @@ plt.title("Team 6 - Elliptic IIR Low-pass Filter")
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Magnitude (dB)")
 
+# Mark important filter frequencies
+plt.axvline(Fp, color='red', linestyle='--',
+            label='Passband Edge (22 kHz)')
+
+plt.axhline(-Rp, color='green', linestyle=':',
+            label='Passband Ripple (-1 dB)')
+
+plt.axhline(-Rs, color='purple', linestyle=':',
+            label='Stopband Attenuation (-40 dB)')
+
 plt.grid(True)
 plt.xlim(0, Fs / 2)
 plt.ylim(-80, 5)
+plt.legend()
 
 plt.tight_layout()
 plt.savefig("graphs/filter_response.png")
