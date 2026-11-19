@@ -90,6 +90,71 @@ sf.write(
 
 print("Filtered audio saved!")
 
+# ---------------------------------
+# DFT (Frequency Domain) Comparison
+# ---------------------------------
+
+# Apply a Hann window to reduce spectral leakage
+window = np.hanning(len(audio))
+
+# Calculate the DFT of each audio signal
+original_fft = np.fft.rfft(audio * window)
+noisy_fft = np.fft.rfft(noisy_audio * window)
+filtered_fft = np.fft.rfft(filtered_audio * window)
+
+# Create the frequency axis
+frequencies = np.fft.rfftfreq(len(audio), 1/Fs)
+
+# Calculate the magnitude of each DFT
+original_magnitude = np.abs(original_fft)
+noisy_magnitude = np.abs(noisy_fft)
+filtered_magnitude = np.abs(filtered_fft)
+
+# Use the same reference for all three graphs
+reference = max(
+    np.max(original_magnitude),
+    np.max(noisy_magnitude),
+    np.max(filtered_magnitude)
+)
+
+# Convert magnitudes to decibels
+original_db = 20 * np.log10(original_magnitude / reference + 1e-12)
+noisy_db = 20 * np.log10(noisy_magnitude / reference + 1e-12)
+filtered_db = 20 * np.log10(filtered_magnitude / reference + 1e-12)
+
+# Create the DFT comparison graphs
+plt.figure(figsize=(12, 9))
+
+plt.subplot(3, 1, 1)
+plt.plot(frequencies, original_db)
+plt.title("DFT of Original SpongeBob Audio")
+plt.ylabel("Magnitude (dB)")
+plt.xlim(0, Fs/2)
+plt.grid()
+
+plt.subplot(3, 1, 2)
+plt.plot(frequencies, noisy_db)
+plt.title("DFT of Noisy SpongeBob Audio")
+plt.ylabel("Magnitude (dB)")
+plt.xlim(0, Fs/2)
+plt.grid()
+
+plt.subplot(3, 1, 3)
+plt.plot(frequencies, filtered_db)
+plt.title("DFT of Filtered SpongeBob Audio")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Magnitude (dB)")
+plt.xlim(0, Fs/2)
+plt.grid()
+
+plt.tight_layout()
+
+# Save the DFT graph
+plt.savefig("graphs/dft_comparison.png")
+plt.show()
+
+print("DFT graphs successfully generated!")
+
 # 7. Plot original, noisy, and filtered audio
 plt.figure(figsize=(12, 7))
 
