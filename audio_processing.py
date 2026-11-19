@@ -127,24 +127,33 @@ plt.figure(figsize=(12, 9))
 
 plt.subplot(3, 1, 1)
 plt.plot(frequencies, original_db)
+plt.axvline(22000, color='red', linestyle='--',
+            label='22,000 Hz Cutoff')
 plt.title("DFT of Original SpongeBob Audio")
 plt.ylabel("Magnitude (dB)")
 plt.xlim(0, Fs/2)
+plt.legend()
 plt.grid()
 
 plt.subplot(3, 1, 2)
 plt.plot(frequencies, noisy_db)
+plt.axvline(22000, color='red', linestyle='--',
+            label='22,000 Hz Cutoff')
 plt.title("DFT of Noisy SpongeBob Audio")
 plt.ylabel("Magnitude (dB)")
 plt.xlim(0, Fs/2)
+plt.legend()
 plt.grid()
 
 plt.subplot(3, 1, 3)
 plt.plot(frequencies, filtered_db)
+plt.axvline(22000, color='red', linestyle='--',
+            label='22,000 Hz Cutoff')
 plt.title("DFT of Filtered SpongeBob Audio")
 plt.xlabel("Frequency (Hz)")
 plt.ylabel("Magnitude (dB)")
 plt.xlim(0, Fs/2)
+plt.legend()
 plt.grid()
 
 plt.tight_layout()
