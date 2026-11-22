@@ -1,188 +1,172 @@
 import numpy as np
 import soundfile as sf
-import scipy.signal as signal
 import matplotlib.pyplot as plt
+from scipy import signal
 
-# ==========================================
-# TEAM 6 - AUDIO PROCESSING
-# ==========================================
+from filter_design import design_filter, FS
 
-# 1. Audio specifications
-Fs = 48000
 
-# 2. Load original voice recording
-audio, sample_rate = sf.read("audio/spongebob_voice.wav")
+# -------------------- File Paths --------------------
 
-# Convert to mono if necessary
-if audio.ndim > 1:
-    audio = np.mean(audio, axis=1)
+AUDIO_PATH = "audio/spongebob_voice.wav"
+NOISY_PATH = "audio/spongebob_noisy.wav"
+OUTPUT_PATH = "audio/spongebob_filtered.wav"
 
-print("Original audio loaded!")
-print("Sampling rate:", sample_rate)
-print("Duration:", len(audio) / sample_rate, "seconds")
 
-# 3. Generate high-frequency noise
-np.random.seed(42)
+# -------------------- Step 1: Load Original Audio --------------------
 
-time = np.arange(len(audio)) / Fs
+clean_audio, sample_rate = sf.read(AUDIO_PATH)
 
-noise = np.random.normal(0, 0.05, len(audio))
+print("\n========== ORIGINAL AUDIO ==========")
+print("Sampling frequency:", sample_rate, "Hz")
+print("Number of samples:", len(clean_audio))
+print("Audio duration:", len(clean_audio) / sample_rate, "seconds")
+print("====================================")
 
-# Focus added noise above 22 kHz
-sos_noise = signal.butter(
-    4, 22000, btype='highpass',
-    fs=Fs, output='sos'
-)
 
-high_frequency_noise = signal.sosfilt(
-    sos_noise, noise
-)
+# Verify sampling frequency
+if sample_rate != FS:
+    raise ValueError(
+        "Audio sampling frequency does not match filter sampling frequency!"
+    )
 
-# Add noise to original recording
-noisy_audio = audio + high_frequency_noise
 
-# Normalize to avoid clipping
-noisy_audio = noisy_audio / max(
-    np.max(np.abs(noisy_audio)), 1e-12
-) * 0.95
+# -------------------- Step 2: Add High-Frequency Noise --------------------
+# CHANGED: the original recording has no noise (nothing above ~10.5 kHz),
+# so a 22 kHz low-pass filter has nothing to remove. We add noise in the
+# 22.5 kHz - 24 kHz range, which is the only range this filter can remove
+# (Nyquist = 24 kHz).
 
-# 4. Save noisy recording
-sf.write(
-    "audio/spongebob_noisy.wav",
-    noisy_audio,
-    Fs
-)
+rng = np.random.default_rng(3313)                       # same noise every run
+white_noise = rng.standard_normal(len(clean_audio))
+highpass = signal.butter(8, 22500, btype="highpass", fs=FS, output="sos")
+noise = signal.sosfilt(highpass, white_noise)
+noise = 0.05 * noise / np.std(noise)                    # noise strength
 
-print("Noisy audio saved!")
+audio = clean_audio + noise                             # noisy input signal
 
-# 5. Design Team 6 elliptic filter
-N = 20
-Rp = 1
-Rs = 40
+sf.write(NOISY_PATH, audio, sample_rate)
 
-Fp = 22000
 
-Wp = 2 * Fs * np.tan(np.pi * Fp / Fs)
+# -------------------- Step 3: Design Elliptic Filter --------------------
 
-z, p, k = signal.ellipap(N, Rp, Rs)
+print("\nDesigning elliptic IIR low-pass filter...")
 
-z, p, k = signal.lp2lp_zpk(
-    z, p, k, wo=Wp
-)
+sos = design_filter()
 
-zd, pd, kd = signal.bilinear_zpk(
-    z, p, k, fs=Fs
-)
+print("Filter designed successfully!")
 
-sos = signal.zpk2sos(zd, pd, kd)
 
-# 6. Apply filter
-filtered_audio = signal.sosfiltfilt(
-    sos, noisy_audio
-)
+# -------------------- Step 4: Apply Filter --------------------
+# CHANGED: sosfilt instead of sosfiltfilt. sosfiltfilt runs the filter
+# forwards AND backwards, so the signal sees |H|^2 (-2 dB in the passband
+# and double attenuation), which is not the filter we designed.
 
-# Save filtered recording
-sf.write(
-    "audio/spongebob_filtered.wav",
-    filtered_audio,
-    Fs
-)
+print("\nApplying filter to noisy audio...")
 
-print("Filtered audio saved!")
+filtered_audio = signal.sosfilt(sos, audio)
 
-# ---------------------------------
-# DFT (Frequency Domain) Comparison
-# ---------------------------------
+print("Filtering completed!")
 
-# Apply a Hann window to reduce spectral leakage
-window = np.hanning(len(audio))
 
-# Calculate the DFT of each audio signal
-original_fft = np.fft.rfft(audio * window)
-noisy_fft = np.fft.rfft(noisy_audio * window)
-filtered_fft = np.fft.rfft(filtered_audio * window)
+# -------------------- Step 5: Save Filtered Audio --------------------
 
-# Create the frequency axis
-frequencies = np.fft.rfftfreq(len(audio), 1/Fs)
+sf.write(OUTPUT_PATH, filtered_audio, sample_rate)
 
-# Calculate the magnitude of each DFT
-original_magnitude = np.abs(original_fft)
-noisy_magnitude = np.abs(noisy_fft)
-filtered_magnitude = np.abs(filtered_fft)
+print("\nFiltered audio saved successfully!")
+print("Output file:", OUTPUT_PATH)
 
-# Use the same reference for all three graphs
-reference = max(
-    np.max(original_magnitude),
-    np.max(noisy_magnitude),
-    np.max(filtered_magnitude)
-)
 
-# Convert magnitudes to decibels
-original_db = 20 * np.log10(original_magnitude / reference + 1e-12)
-noisy_db = 20 * np.log10(noisy_magnitude / reference + 1e-12)
-filtered_db = 20 * np.log10(filtered_magnitude / reference + 1e-12)
+# -------------------- Step 6: Plot Audio Signals --------------------
 
-# Create the DFT comparison graphs
-plt.figure(figsize=(12, 9))
+time = np.arange(len(audio)) / sample_rate
 
-plt.subplot(3, 1, 1)
-plt.plot(frequencies, original_db)
-plt.axvline(22000, color='red', linestyle='--',
-            label='22,000 Hz Cutoff')
-plt.title("DFT of Original SpongeBob Audio")
-plt.ylabel("Magnitude (dB)")
-plt.xlim(0, Fs/2)
-plt.legend()
-plt.grid()
+plt.figure(figsize=(12, 8))
 
-plt.subplot(3, 1, 2)
-plt.plot(frequencies, noisy_db)
-plt.axvline(22000, color='red', linestyle='--',
-            label='22,000 Hz Cutoff')
-plt.title("DFT of Noisy SpongeBob Audio")
-plt.ylabel("Magnitude (dB)")
-plt.xlim(0, Fs/2)
-plt.legend()
-plt.grid()
-
-plt.subplot(3, 1, 3)
-plt.plot(frequencies, filtered_db)
-plt.axvline(22000, color='red', linestyle='--',
-            label='22,000 Hz Cutoff')
-plt.title("DFT of Filtered SpongeBob Audio")
-plt.xlabel("Frequency (Hz)")
-plt.ylabel("Magnitude (dB)")
-plt.xlim(0, Fs/2)
-plt.legend()
-plt.grid()
-
-plt.tight_layout()
-
-# Save the DFT graph
-plt.savefig("graphs/dft_comparison.png")
-plt.show()
-
-print("DFT graphs successfully generated!")
-
-# 7. Plot original, noisy, and filtered audio
-plt.figure(figsize=(12, 7))
-
-plt.subplot(3, 1, 1)
-plt.plot(time, audio)
-plt.title("Original SpongeBob Audio")
-
-plt.subplot(3, 1, 2)
-plt.plot(time, noisy_audio)
-plt.title("Noisy SpongeBob Audio")
-
-plt.subplot(3, 1, 3)
-plt.plot(time, filtered_audio)
-plt.title("Filtered SpongeBob Audio")
-
+plt.subplot(2, 1, 1)
+plt.plot(time, audio, color="blue", linewidth=0.7)
+plt.title("Audio Before Filtering (voice + high-frequency noise)")
 plt.xlabel("Time (seconds)")
-plt.tight_layout()
+plt.ylabel("Amplitude")
+plt.ylim(-0.4, 0.4)
+plt.grid(True, alpha=0.3)
 
-plt.savefig("graphs/audio_comparison.png")
+plt.subplot(2, 1, 2)
+plt.plot(time, filtered_audio, color="red", linewidth=0.7)
+plt.title("Audio After Filtering")
+plt.xlabel("Time (seconds)")
+plt.ylabel("Amplitude")
+plt.ylim(-0.4, 0.4)
+plt.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.savefig("graphs/audio_comparison.png", dpi=300)
 plt.show()
 
-print("Audio processing completed!")
+
+# -------------------- Step 7: Calculate DFT --------------------
+
+print("\nCalculating DFT of noisy and filtered audio...")
+
+# CHANGED: two-sided DFT (-24 kHz to +24 kHz) like the project example
+original_fft = np.fft.fftshift(np.fft.fft(audio))
+filtered_fft = np.fft.fftshift(np.fft.fft(filtered_audio))
+
+frequencies = np.fft.fftshift(
+    np.fft.fftfreq(len(audio), d=1 / sample_rate)
+)
+
+# Normalize both using the noisy audio's maximum
+normalization_factor = np.max(np.abs(original_fft))
+original_normalized = np.abs(original_fft) / normalization_factor
+filtered_normalized = np.abs(filtered_fft) / normalization_factor
+
+# CHANGED: filter magnitude response on the same frequency axis (orange line)
+_, H = signal.sosfreqz(sos, worN=2 * np.pi * frequencies / FS)
+filter_magnitude = np.abs(H)
+
+print("DFT calculation completed!")
+
+
+# -------------------- Step 8: Plot DFT Comparison --------------------
+
+plt.figure(figsize=(12, 8))
+
+plt.subplot(2, 1, 1)
+plt.plot(frequencies, original_normalized, color="blue", linewidth=0.8)
+plt.plot(frequencies, filter_magnitude, color="orange", linewidth=1.5,
+         label="Filter response")
+plt.title("DFT Before Filtering")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Normalized Magnitude")
+plt.xlim(-sample_rate / 2, sample_rate / 2)
+plt.ylim(0, 1.05)
+plt.grid(True, alpha=0.3)
+plt.legend(loc="upper right")
+
+plt.subplot(2, 1, 2)
+plt.plot(frequencies, filtered_normalized, color="red", linewidth=0.8)
+plt.plot(frequencies, filter_magnitude, color="orange", linewidth=1.5,
+         label="Filter response")
+plt.title("DFT After Filtering")
+plt.xlabel("Frequency (Hz)")
+plt.ylabel("Normalized Magnitude")
+plt.xlim(-sample_rate / 2, sample_rate / 2)
+plt.ylim(0, 1.05)
+plt.grid(True, alpha=0.3)
+plt.legend(loc="upper right")
+
+plt.tight_layout()
+plt.savefig("graphs/dft_comparison.png", dpi=300)
+plt.show()
+
+
+# -------------------- Program Complete --------------------
+
+print("\n========== PROJECT COMPLETE ==========")
+print("Noisy audio created and saved.")
+print("Elliptic IIR filter applied successfully.")
+print("Filtered audio saved successfully.")
+print("Audio signal graphs generated.")
+print("DFT comparison graph generated.")
+print("======================================")
