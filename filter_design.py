@@ -1,15 +1,16 @@
+
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 
 # ---------------- Project Specifications ----------------
-FS = 48000              # Sampling frequency: 48,000 samples per second
-FILTER_ORDER = 20       # Required filter order
-RP = 1                  # Maximum passband ripple: 1 dB
-RS = 17                 # Minimum stopband attenuation: 17 dB
-FP = 22000              # Passband edge frequency: 22,000 Hz
+FS = 48000               # Sampling frequency: 48,000 samples per second
+FILTER_ORDER = 20        # Required filter order
+RP = 1                   # Maximum passband ripple: 1 dB
+RS = 17                  # Minimum stopband attenuation: 17 dB
+FP = 22000               # Passband edge frequency: 22,000 Hz
 
-
+# ------------- DESIGN THE ELLIPTIC IIR LOW-PASS FILTER ---------
 def design_filter():
 
     # Step 1: Pre-warp the digital passband edge for the bilinear transformation
@@ -27,22 +28,22 @@ def design_filter():
     # Step 5: Convert the filter into second-order sections for numerical stability
     sos = signal.zpk2sos(zd, pd, kd)
 
-    return sos  # Return the completed digital filter
+    return sos     # Return the completed digital filter
 
 
+# ----------- VERIFY AND PLOT THE FILTER FREQUENCY RESPONSE ---------------
 def plot_frequency_response(sos):
 
-    # Calculate the filter response using a dense frequency grid
+    # Calculate the filter frequency response using a dense
     frequencies, response = signal.sosfreqz(
         sos, worN=2**22, fs=FS
     )
-
-    # Convert the filter magnitude into decibels
+    # Convert the response magnitude into decibels.
     magnitude_db = 20 * np.log10(
         np.maximum(np.abs(response), 1e-14)
     )
 
-    # Find the first frequency after FP where attenuation reaches 17 dB
+    # Find the first frequency after FP that reaches -17 dB
     stop_indices = np.where(
         (frequencies > FP) & (magnitude_db <= -RS)
     )[0]
@@ -70,8 +71,8 @@ def plot_frequency_response(sos):
 
     # Calculate the actual filter order from the number of sections
     actual_order = sos.shape[0] * 2
-
-    # Display the filter specifications and verification results
+    
+    # Print the numerical filter verification results.
     print("\n-------- FILTER VERIFICATION --------")
     print("Actual filter order:", actual_order)
     print("Passband edge:", FP, "Hz")
@@ -88,17 +89,20 @@ def plot_frequency_response(sos):
 
     print("-------------------------------------")
 
+# ---------------- CALCULATE THE FULL FREQUENCY RESPONSE FOR PLOTTING ----------------
     # Calculate a smaller frequency grid for the full response graph
     full_freq, full_response = signal.sosfreqz(
         sos, worN=16384, fs=FS
     )
 
-    # Convert the full frequency response into decibels
+    # Convert the response into decibels.
     full_db = 20 * np.log10(
         np.maximum(np.abs(full_response), 1e-14)
     )
 
-    # Create two graphs: full response and zoomed transition region
+    # Create two plots:
+    # The first shows the full frequency range.
+    # The second zooms into the transition region.
     fig, (ax1, ax2) = plt.subplots(
         2, 1, figsize=(12, 9)
     )
@@ -110,50 +114,50 @@ def plot_frequency_response(sos):
         fontweight="bold"
     )
 
-    # ---------------- Full frequency response ----------------
-
-    # Plot the filter response across the entire frequency range
+# ------------ PLOT THE FULL FREQUENCY RESPONSE --------------
+    
+    # Blue line: actual filter frequency response.
     ax1.plot(
         full_freq, full_db,
         color="blue", linewidth=1.5,
         label="Filter response"
     )
 
-    # Show the maximum allowed passband ripple
+    # Green horizontal line: -1 dB passband limit.
     ax1.axhline(
         -RP, color="green", linestyle="--",
         label="Passband limit (-1 dB)"
     )
 
-    # Show the required stopband attenuation
+    # Red horizontal line: -17 dB stopband limit.
     ax1.axhline(
         -RS, color="red", linestyle="--",
         label="Stopband limit (-17 dB)"
     )
 
-    # Mark the passband edge at 22,000 Hz
+    # Vertical line marking the passband edge.
     ax1.axvline(
         FP, color="green", linestyle=":",
         label="Passband edge (22,000 Hz)"
     )
 
-    # Mark the calculated stopband edge
+    # Vertical line marking the calculated stopband edge.
     ax1.axvline(
         stopband_edge, color="red", linestyle=":",
         label=f"Stopband edge ({stopband_edge:.3f} Hz)"
     )
 
-    # Shade the passband region in green
+    # Light green shading: passband region.
     ax1.axvspan(
         0, FP, color="green", alpha=0.07
     )
 
-    # Shade the transition region in orange
+    # Orange shading: transition region.
     ax1.axvspan(
         FP, stopband_edge, color="orange", alpha=0.45
     )
 
-    # Shade the stopband region in red
+    # Light red shading: stopband region.
     ax1.axvspan(
         stopband_edge, FS / 2,
         color="red", alpha=0.05
@@ -163,14 +167,14 @@ def plot_frequency_response(sos):
     ax1.set_title("Full Frequency Response")
     ax1.set_xlabel("Frequency (Hz)")
     ax1.set_ylabel("Magnitude (dB)")
-    ax1.set_xlim(0, FS / 2)  # Display from 0 Hz to Nyquist frequency
+    ax1.set_xlim(0, FS / 2)
     ax1.set_ylim(-30, 2)
     ax1.grid(True, alpha=0.3)
     ax1.legend(loc="lower left", fontsize=9)
 
-    # ---------------- Zoomed transition region ----------------
+# ---------------- ZOOM INTO THE TRANSITION REGION ----------------
 
-    # Set the frequency range to zoom in around the transition region
+    # Define the frequency range around the transition.
     zoom_start = FP - 0.2
     zoom_end = stopband_edge + 0.2
 
@@ -180,7 +184,7 @@ def plot_frequency_response(sos):
         (frequencies <= zoom_end)
     )
 
-    # Plot the filter response in the zoomed transition region
+    # Plot the filter response in the zoomed region.
     ax2.plot(
         frequencies[zoom_mask],
         magnitude_db[zoom_mask],
@@ -188,31 +192,29 @@ def plot_frequency_response(sos):
         label="Filter response"
     )
 
-    # Show the passband ripple limit
+    # Display the passband and stopband limits.
     ax2.axhline(
         -RP, color="green", linestyle="--",
         label="-1 dB passband limit"
     )
 
-    # Show the stopband attenuation limit
     ax2.axhline(
         -RS, color="red", linestyle="--",
         label="-17 dB stopband limit"
     )
 
-    # Mark the passband edge
+    # Mark the passband and stopband edges.
     ax2.axvline(
         FP, color="green", linestyle=":",
         label="Passband edge"
     )
 
-    # Mark the calculated stopband edge
     ax2.axvline(
         stopband_edge, color="red", linestyle=":",
         label="Stopband edge"
     )
 
-    # Highlight the transition region between the two edges
+    # Highlight the transition region.
     ax2.axvspan(
         FP, stopband_edge,
         color="orange", alpha=0.25,
@@ -230,15 +232,14 @@ def plot_frequency_response(sos):
 
     # Adjust graph spacing so labels do not overlap
     plt.tight_layout()
-
     # Save the frequency response graph in the graphs folder
     plt.savefig("graphs/filter_response.png", dpi=300)
-
     # Display the frequency response graphs
     plt.show()
 
+# ----------  RUN THE FILTER DESIGN PROGRAM -------------------
 
-# Run this section only when this file is executed directly
+# This section runs only when this file is executed directly.
 if __name__ == "__main__":
 
     # Design the elliptic IIR low-pass filter
@@ -253,3 +254,5 @@ if __name__ == "__main__":
 
     # Verify the filter and generate its frequency response graphs
     plot_frequency_response(sos)
+
+
