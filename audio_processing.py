@@ -85,7 +85,7 @@ plt.ylim(-0.4, 0.4)
 plt.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig("Graphs/audio_signals.png", dpi=300)
+plt.savefig("graphs/audio_signals.png", dpi=300)
 plt.show()
 
 
@@ -145,7 +145,7 @@ plt.grid(True, alpha=0.3)
 plt.legend(loc="upper right")
 
 plt.tight_layout()
-plt.savefig("Graphs/dft_comparison.png", dpi=300)
+plt.savefig("graphs/dft_comparison.png", dpi=300)
 plt.show()
 
 
