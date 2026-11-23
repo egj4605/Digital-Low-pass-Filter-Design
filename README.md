@@ -1,4 +1,4 @@
-**Overview: **
+**Overview:**
 
 The purpose of this project is to design and implement a digital infinite Impulse Response (IIR) low-pass filter using the Elliptic filter design algorithm and the Bilinear transformation method.
 A low-pass filter allows lower-frequency components of signals to pass while attenuating higher-frequency components. This is useful for reducing unwanted high-frequency noise in audio recordings.
