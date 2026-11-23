@@ -254,5 +254,3 @@ if __name__ == "__main__":
 
     # Verify the filter and generate its frequency response graphs
     plot_frequency_response(sos)
-
-
